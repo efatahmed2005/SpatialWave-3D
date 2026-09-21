@@ -1,0 +1,22 @@
+{
+  "name": "SpatialWave 3D Mobile",
+  "short_name": "SpatialWave",
+  "description": "Audiophile 3D Binaural & 8D Spatial Audio Engine for Headphones",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#080a11",
+  "theme_color": "#080a11",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "../icons/icon48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "../icons/icon128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#080a11">
+  <title>SpatialWave 3D Mobile</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="../icons/icon128.png">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div class="mobile-app">
+    <!-- Header -->
+    <header class="mobile-header">
+      <div class="header-left">
+        <svg class="header-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="9" stroke="#00f5d4"></circle>
+          <circle cx="12" cy="12" r="3" fill="#00f5d4"></circle>
+          <path d="M12 3a9 9 0 0 1 9 9" stroke="#7b2cbf" stroke-width="2.5"></path>
+        </svg>
+        <div>
+          <h1 class="header-title">SPATIALWAVE 3D</h1>
+          <div class="header-subtitle">MOBILE AUDIOPHILE ENGINE</div>
+        </div>
+      </div>
+      <label class="power-toggle" title="Toggle Master 3D Processing">
+        <input type="checkbox" id="mobilePowerToggle" checked>
+        <span class="power-switch-slider"></span>
+      </label>
+    </header>
+
+    <!-- Audio Source Selector -->
+    <section class="glass-card source-card">
+      <div class="card-title">AUDIO SOURCE</div>
+      <div class="source-buttons">
+        <label class="btn-file-picker">
+          <span>📁 Open Audio File</span>
+          <input type="file" id="audioFileInput" accept="audio/*" style="display:none;">
+        </label>
+        <button id="btnPlayDemo" class="btn-secondary">🎵 Play 3D Demo</button>
+      </div>
+      <audio id="nativeAudioPlayer" controls style="width:100%; margin-top:8px; display:none;"></audio>
+      <div id="nowPlayingText" class="now-playing-label">No track loaded. Choose a file or play demo.</div>
+    </section>
+
+    <!-- 3D Spatial Radar Visualizer -->
+    <section class="glass-card radar-section">
+      <div class="card-header-row">
+        <div class="card-title">SPATIAL RADAR</div>
+        <div class="radar-badge" id="mobileRadarBadge">Orbit 360°</div>
+      </div>
+      <div class="radar-wrap">
+        <canvas id="mobileRadarCanvas" width="320" height="150"></canvas>
+      </div>
+      <!-- Spectrum Bar -->
+      <div class="spectrum-wrap">
+        <canvas id="mobileSpectrumCanvas" width="320" height="35"></canvas>
+      </div>
+    </section>
+
+    <!-- Target Presets Carousel -->
+    <section class="glass-card presets-section">
+      <div class="card-title">TARGET PRESETS</div>
+      <div class="preset-scroll-row">
+        <button class="preset-pill active" data-preset="orbit8d">🌀 8D Orbit</button>
+        <button class="preset-pill" data-preset="gaming">🎯 CS2 Gaming</button>
+        <button class="preset-pill" data-preset="audiophile">💎 Audiophile</button>
+        <button class="preset-pill" data-preset="cinema">🎬 Cinema</button>
+        <button class="preset-pill" data-preset="asmr">🎙️ ASMR</button>
+        <button class="preset-pill" data-preset="music">🎵 Music Studio</button>
+      </div>
+    </section>
+
+    <!-- Headphone Profile & Parametric EQ Plot -->
+    <section class="glass-card peq-section">
+      <div class="card-header-row">
+        <div class="card-title">HEADPHONE AUTOEQ PROFILE</div>
+      </div>
+      <select id="mobileProfileSelect" class="mobile-select">
+        <option value="kz_edx_pro" selected>KZ EDX Pro (Calibrated)</option>
+        <option value="hd600">Sennheiser HD 600 / 650</option>
+        <option value="sony_xm4">Sony WH-1000XM4 / XM5</option>
+        <option value="harman_target">Harman 2019 Reference Target</option>
+        <option value="flat">Flat / Bypass</option>
+      </select>
+      <div class="peq-canvas-wrap">
+        <canvas id="mobilePeqCanvas" width="320" height="75"></canvas>
+      </div>
+    </section>
+
+    <!-- Touch Acoustic Controls -->
+    <section class="glass-card controls-section">
+      <div class="card-title">3D ACOUSTIC CONTROLS</div>
+
+      <div class="control-row">
+        <label for="mobileTrajectorySelect">Movement Mode</label>
+        <select id="mobileTrajectorySelect" class="mobile-select">
+          <option value="1">Orbit 360° (Continuous)</option>
+          <option value="2">Figure-8 (Lemniscate)</option>
+          <option value="3">Front Stage Arc</option>
+          <option value="4">Concert Hall Semi-Circle</option>
+          <option value="5">Cinema Wide Arc</option>
+          <option value="6">Wide Studio Breath</option>
+          <option value="7">Random Ambient Wander</option>
+          <option value="0">Static Center</option>
+        </select>
+      </div>
+
+      <!-- Sliders -->
+      <div class="touch-slider-group">
+        <div class="slider-header">
+          <span>3D Intensity</span>
+          <span id="mValIntensity" class="slider-val">85%</span>
+        </div>
+        <input type="range" id="mSliderIntensity" min="0" max="100" value="85">
+      </div>
+
+      <div class="touch-slider-group">
+        <div class="slider-header">
+          <span>Rotation Speed</span>
+          <span id="mValSpeed" class="slider-val">0.12 Hz</span>
+        </div>
+        <input type="range" id="mSliderSpeed" min="2" max="50" value="12">
+      </div>
+
+      <div class="touch-slider-group">
+        <div class="slider-header">
+          <span>Virtual Distance</span>
+          <span id="mValDistance" class="slider-val">1.4 m</span>
+        </div>
+        <input type="range" id="mSliderDistance" min="5" max="35" value="14">
+      </div>
+
+      <div class="touch-slider-group">
+        <div class="slider-header">
+          <span>Stereo Width</span>
+          <span id="mValWidth" class="slider-val">120%</span>
+        </div>
+        <input type="range" id="mSliderWidth" min="0" max="200" value="120">
+      </div>
+
+      <div class="touch-slider-group">
+        <div class="slider-header">
+          <span>Master Output Volume</span>
+          <span id="mValVolume" class="slider-val">100%</span>
+        </div>
+        <input type="range" id="mSliderVolume" min="0" max="150" value="100">
+      </div>
+    </section>
+
+    <!-- Bookmarklet Guide Footer Card -->
+    <section class="glass-card bookmarklet-card">
+      <div class="card-title">BRAVE IN-PAGE INJECTOR</div>
+      <p class="bookmarklet-desc">
+        Want 3D audio directly inside YouTube or SoundCloud in Brave on iOS / Android?
+      </p>
+      <a href="spatialwave-bookmarklet.js" target="_blank" class="btn-bookmarklet">
+        <span>📖 View In-Page Bookmarklet Guide</span>
+      </a>
+    </section>
+  </div>
+
+  <script src="../presets.js"></script>
+  <script src="mobile.js"></script>
+</body>
+</html>
