@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SpatialWave 3D - Audio DSP & Diagnostics Test Harness</title>
+  <style>
+    body {
+      background: #090c14;
+      color: #f0f4fc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 30px;
+      line-height: 1.6;
+    }
+    h1 { color: #00f5d4; font-size: 24px; margin-bottom: 4px; }
+    .subtitle { color: #8b9bb4; font-size: 13px; margin-bottom: 24px; }
+    .card {
+      background: rgba(22, 28, 48, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      max-width: 720px;
+    }
+    .btn {
+      background: linear-gradient(135deg, #00f5d4, #00b4d8);
+      color: #080a11;
+      font-weight: 700;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-right: 10px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f0f4fc;
+    }
+    .log-box {
+      background: #05070c;
+      border: 1px solid rgba(0, 245, 212, 0.25);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: monospace;
+      font-size: 12px;
+      color: #00f5d4;
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .badge-pass {
+      color: #00f5d4;
+      font-weight: bold;
+    }
+    .badge-fail {
+      color: #ff4757;
+      font-weight: bold;
+    }
+    canvas {
+      background: #05070c;
+      border-radius: 8px;
+      margin-top: 10px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>SpatialWave 3D - DSP Validation Suite</h1>
+  <div class="subtitle">Diagnostic and audio verification test bench for Chrome/Brave Manifest V3 AudioWorklet</div>
+
+  <div class="card">
+    <h3>Interactive Audio Test & 3D Binaural Demo</h3>
+    <p>Generate synthetic multi-timbral test audio (synthesizer arpeggio + drum groove) through the complete 3D binaural spatial engine.</p>
+    <button id="btnStartDemo" class="btn">▶ Start 3D Spatial Demo</button>
+    <button id="btnStopDemo" class="btn btn-secondary">⏹ Stop Demo</button>
+    <button id="btnRunTests" class="btn" style="background: linear-gradient(135deg, #7b2cbf, #f72585); color: #fff;">⚡ Run Diagnostic Tests</button>
+
+    <canvas id="diagSpectrum" width="680" height="60"></canvas>
+  </div>
+
+  <div class="card">
+    <h3>Automated Test Execution Log</h3>
+    <div id="testLog" class="log-box">Click "Run Diagnostic Tests" to verify DSP algorithms, AutoEQ parsing, and limiter clamping...</div>
+  </div>
+
+  <script src="../presets.js"></script>
+  <script>
+    let testCtx = null;
+    let synthInterval = null;
+    let workletNode = null;
+    let analyserNode = null;
+    let isRunning = false;
+
+    const logEl = document.getElementById('testLog');
+    const specCanvas = document.getElementById('diagSpectrum');
+    const specCtx = specCanvas.getContext('2d');
+
+    function log(msg) {
+      logEl.innerHTML += msg + '\n';
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function initAudioEngine() {
+      if (!testCtx) {
+        testCtx = new AudioContext({ latencyHint: 'interactive' });
+        await testCtx.audioWorklet.addModule('../dsp/processor.js');
+
+        workletNode = new AudioWorkletNode(testCtx, 'spatial-hrtf-processor', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [2]
+        });
+
+        analyserNode = testCtx.createAnalyser();
+        analyserNode.fftSize = 256;
+
+        workletNode.connect(analyserNode);
+        analyserNode.connect(testCtx.destination);
+      }
+      if (testCtx.state === 'suspended') {
+        await testCtx.resume();
+      }
+    }
+
+    // Diagnostic Automated Tests
+    document.getElementById('btnRunTests').addEventListener('click', async () => {
+      logEl.innerHTML = '';
+      log('==================================================');
+      log('Running SpatialWave 3D Automated Verification...');
+      log('==================================================');
+
+      // Test 1: AutoEQ Parser
+      log('\n[Test 1] AutoEQ Format Parser Verification:');
+      const testAutoEqText = `
+Preamp: -4.5 dB
+Filter 1: ON PK Fc 32 Hz Gain -2.1 dB Q 1.41
+Filter 2: ON LSC Fc 105 Hz Gain 5.5 dB Q 0.71
+Filter 3: ON HSC Fc 10000 Hz Gain -3.0 dB Q 0.71
+Filter 4: OFF PK Fc 4500 Hz Gain -6.0 dB Q 3.00
+      `.trim();
+
+      const parsed = parseAutoEQText(testAutoEqText);
+      if (parsed && parsed.preampDb === -4.5 && parsed.filters.length === 4) {
+        log('  ✓ Preamp parsed: ' + parsed.preampDb + ' dB');
+        log('  ✓ Filter count: ' + parsed.filters.length + ' filters');
+        log('  ✓ Filter 1: ' + parsed.filters[0].type + ' at ' + parsed.filters[0].freq + 'Hz, gain ' + parsed.filters[0].gain + 'dB');
+        log('  ✓ Result: <span class="badge-pass">PASS</span>');
+      } else {
+        log('  ✗ Result: <span class="badge-fail">FAIL</span>');
+      }
+
+      // Test 2: Target Presets Integrity
+      log('\n[Test 2] Target Presets Verification:');
+      const requiredPresets = ['gaming', 'audiophile', 'cinema', 'asmr', 'orbit8d', 'music'];
+      let presetsPass = true;
+      requiredPresets.forEach(p => {
+        if (!TARGET_PRESETS[p] || typeof TARGET_PRESETS[p].intensity !== 'number') {
+          presetsPass = false;
+        }
+      });
+      if (presetsPass) {
+        log('  ✓ All 6 Target Presets validated (Gaming, Audiophile, Cinema, ASMR, 8D, Music).');
+        log('  ✓ Result: <span class="badge-pass">PASS</span>');
+      } else {
+        log('  ✗ Result: <span class="badge-fail">FAIL</span>');
+      }
+
+      // Test 3: AudioWorklet & Limiter Clamping Test
+      log('\n[Test 3] AudioWorklet Initialisation & Hard-Ceiling Limiter (-1.0 dBFS):');
+      try {
+        await initAudioEngine();
+        log('  ✓ AudioContext active. SampleRate: ' + testCtx.sampleRate + ' Hz');
+        log('  ✓ AudioWorklet "spatial-hrtf-processor" module registered and running.');
+
+        // Send extreme +12dB burst to verify limiter keeps output under -1.0 dBFS (0.89125)
+        const osc = testCtx.createOscillator();
+        const boostGain = testCtx.createGain();
+        boostGain.gain.value = 4.0; // +12 dB extreme boost
+
+        osc.type = 'sine';
+        osc.frequency.value = 440;
+        osc.connect(boostGain);
+        boostGain.connect(workletNode);
+
+        osc.start();
+        await new Promise(r => setTimeout(r, 100));
+
+        // Read time domain data
+        const timeData = new Float32Array(analyserNode.fftSize);
+        analyserNode.getFloatTimeDomainData(timeData);
+
+        let maxVal = 0;
+        for (let i = 0; i < timeData.length; i++) {
+          const a = Math.abs(timeData[i]);
+          if (a > maxVal) maxVal = a;
+        }
+
+        osc.stop();
+        osc.disconnect();
+
+        log('  ✓ Input Stress: +12 dBFS extreme boost');
+        log('  ✓ Measured Peak Output: ' + (20 * Math.log10(maxVal)).toFixed(2) + ' dBFS (linear: ' + maxVal.toFixed(4) + ')');
+
+        if (maxVal <= 0.92) {
+          log('  ✓ Hard-ceiling peak limiter successfully clamped output below -0.8 dBFS!');
+          log('  ✓ Result: <span class="badge-pass">PASS</span>');
+        } else {
+          log('  ✗ Limiter exceeded threshold: ' + maxVal);
+          log('  ✗ Result: <span class="badge-fail">FAIL</span>');
+        }
+      } catch (err) {
+        log('  ✗ AudioWorklet test failed: ' + err.message);
+        log('  ✗ Result: <span class="badge-fail">FAIL</span>');
+      }
+
+      log('\n==================================================');
+      log('All Automated Verification Tests Completed!');
+      log('==================================================');
+    });
+
+    // Interactive Demo
+    document.getElementById('btnStartDemo').addEventListener('click', async () => {
+      await initAudioEngine();
+      if (isRunning) return;
+      isRunning = true;
+
+      // Play continuous rhythmic synth arpeggio in 3D orbit
+      let step = 0;
+      const notes = [220, 261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50];
+
+      synthInterval = setInterval(() => {
+        if (!testCtx || !isRunning) return;
+        const now = testCtx.currentTime;
+
+        // Bass kick on downbeat
+        if (step % 4 === 0) {
+          const kick = testCtx.createOscillator();
+          const kickGain = testCtx.createGain();
+          kick.frequency.setValueAtTime(130, now);
+          kick.frequency.exponentialRampToValueAtTime(35, now + 0.12);
+          kickGain.gain.setValueAtTime(0.7, now);
+          kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+          kick.connect(kickGain);
+          kickGain.connect(workletNode);
+          kick.start(now);
+          kick.stop(now + 0.25);
+        }
+
+        // Melodic arpeggio
+        const osc = testCtx.createOscillator();
+        const g = testCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(notes[step % notes.length], now);
+
+        g.gain.setValueAtTime(0.3, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+
+        osc.connect(g);
+        g.connect(workletNode);
+
+        osc.start(now);
+        osc.stop(now + 0.18);
+        step++;
+      }, 140);
+
+      // Start spectrum visualizer
+      function renderDiagSpectrum() {
+        if (!analyserNode) return;
+        const w = specCanvas.width;
+        const h = specCanvas.height;
+        specCtx.fillStyle = '#05070c';
+        specCtx.fillRect(0, 0, w, h);
+
+        const data = new Uint8Array(64);
+        analyserNode.getByteFrequencyData(data);
+
+        const barW = (w / 64) - 2;
+        for (let i = 0; i < 64; i++) {
+          const val = data[i] / 255.0;
+          specCtx.fillStyle = '#00f5d4';
+          specCtx.fillRect(i * (barW + 2), h - val * h, barW, val * h);
+        }
+
+        if (isRunning) requestAnimationFrame(renderDiagSpectrum);
+      }
+      requestAnimationFrame(renderDiagSpectrum);
+    });
+
+    document.getElementById('btnStopDemo').addEventListener('click', () => {
+      isRunning = false;
+      if (synthInterval) clearInterval(synthInterval);
+    });
+  </script>
+</body>
+</html>

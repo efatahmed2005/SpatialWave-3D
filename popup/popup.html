@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpatialWave 3D - Audiophile Spatial Engine</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header Section -->
+    <header class="glass-panel header-panel">
+      <div class="brand-row">
+        <div class="brand-logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" stroke="url(#cyanVioletGrad)"></circle>
+            <path d="M12 3a9 9 0 0 1 9 9" stroke="#00f5d4" stroke-width="2.5" stroke-linecap="round"></path>
+            <circle cx="12" cy="12" r="3" fill="#00f5d4"></circle>
+            <path d="M7 12a5 5 0 0 1 5-5" stroke="#7b2cbf" stroke-width="1.8"></path>
+            <defs>
+              <linearGradient id="cyanVioletGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f5d4"/>
+                <stop offset="100%" stop-color="#7b2cbf"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div>
+            <h1 class="brand-title">SPATIALWAVE 3D</h1>
+            <div class="brand-subtitle">AUDIOPHILE BINAURAL DSP</div>
+          </div>
+        </div>
+
+        <!-- Master Power Switch -->
+        <label class="power-switch" title="Toggle Master DSP Processing">
+          <input type="checkbox" id="masterPowerToggle" checked>
+          <span class="power-slider"></span>
+        </label>
+      </div>
+
+      <!-- System Telemetry Badge & Tab Capture Bar -->
+      <div class="telemetry-bar">
+        <div class="sample-rate-badge" id="sampleRateBadge">
+          <span class="status-dot active"></span>
+          <span id="sampleRateText">48,000 Hz</span>
+          <span class="pipe-sep">•</span>
+          <span class="hw-engine-tag" id="engineTag">WASM DSP</span>
+        </div>
+        <div class="domain-tag" id="domainTag">Active Tab</div>
+      </div>
+
+      <div class="capture-control-row">
+        <button id="btnCaptureToggle" class="btn-capture btn-glow">
+          <span class="capture-icon">⚡</span>
+          <span id="btnCaptureText">Capture & Spatialise Tab</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Visualizers Dashboard -->
+    <section class="glass-panel visualizer-card">
+      <div class="card-header">
+        <span class="card-title">SPATIAL ACOUSTIC RADAR</span>
+        <div class="mode-badge" id="radarModeBadge">Orbit 360°</div>
+      </div>
+      <div class="radar-container">
+        <canvas id="radarCanvas" width="340" height="150"></canvas>
+      </div>
+
+      <!-- Real-time Audio Spectrum -->
+      <div class="spectrum-container">
+        <canvas id="spectrumCanvas" width="340" height="40"></canvas>
+      </div>
+    </section>
+
+    <!-- Target Presets Navigation -->
+    <section class="glass-panel presets-card">
+      <div class="card-header">
+        <span class="card-title">AUDIOPHILE TARGET PRESETS</span>
+      </div>
+      <div class="preset-grid">
+        <button class="preset-btn" data-preset="gaming">
+          <span class="preset-icon">🎯</span>
+          <span class="preset-name">CS2 Gaming</span>
+        </button>
+        <button class="preset-btn" data-preset="audiophile">
+          <span class="preset-icon">💎</span>
+          <span class="preset-name">Audiophile</span>
+        </button>
+        <button class="preset-btn" data-preset="cinema">
+          <span class="preset-icon">🎬</span>
+          <span class="preset-name">Cinema</span>
+        </button>
+        <button class="preset-btn" data-preset="asmr">
+          <span class="preset-icon">🎙️</span>
+          <span class="preset-name">ASMR</span>
+        </button>
+        <button class="preset-btn active" data-preset="orbit8d">
+          <span class="preset-icon">🌀</span>
+          <span class="preset-name">8D Orbit</span>
+        </button>
+        <button class="preset-btn" data-preset="music">
+          <span class="preset-icon">🎵</span>
+          <span class="preset-name">Music</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Parametric EQ & AutoEQ Section -->
+    <section class="glass-panel peq-card">
+      <div class="card-header peq-header">
+        <div>
+          <span class="card-title">PARAMETRIC EQ & AUTOEQ</span>
+          <div class="card-desc" id="peqDesc">KZ EDX Pro Calibration</div>
+        </div>
+        <button id="btnOpenAutoEqModal" class="btn-subtle" title="Import AutoEQ .txt Profile">
+          <span>+ Import AutoEQ</span>
+        </button>
+      </div>
+
+      <div class="profile-select-row">
+        <label for="headphoneProfileSelect">Profile:</label>
+        <select id="headphoneProfileSelect" class="styled-select">
+          <option value="kz_edx_pro" selected>KZ EDX Pro (Calibrated)</option>
+          <option value="hd600">Sennheiser HD 600 / 650</option>
+          <option value="sony_xm4">Sony WH-1000XM4/XM5</option>
+          <option value="harman_target">Harman 2019 Target</option>
+          <option value="flat">Flat / Bypass</option>
+          <option value="custom" id="customOption" style="display:none;">Custom AutoEQ Profile</option>
+        </select>
+      </div>
+
+      <!-- Interactive PEQ Curve Canvas -->
+      <div class="peq-plot-container">
+        <canvas id="peqPlotCanvas" width="340" height="90"></canvas>
+      </div>
+    </section>
+
+    <!-- Core Spatial DSP Controls -->
+    <section class="glass-panel controls-card">
+      <div class="card-header">
+        <span class="card-title">3D ACOUSTIC MATRIX</span>
+      </div>
+
+      <!-- Movement Mode -->
+      <div class="control-row">
+        <label for="trajectoryModeSelect">3D Trajectory Mode</label>
+        <select id="trajectoryModeSelect" class="styled-select">
+          <option value="1">Orbit 360° (Continuous)</option>
+          <option value="2">Figure-8 (Lemniscate)</option>
+          <option value="3">Front Stage Arc</option>
+          <option value="4">Concert Hall Semi-Circle</option>
+          <option value="5">Cinema Wide Arc</option>
+          <option value="6">Wide Studio Breath</option>
+          <option value="7">Random Ambient Wander</option>
+          <option value="0">Static Center Focus</option>
+        </select>
+      </div>
+
+      <!-- Sliders Grid -->
+      <div class="sliders-grid">
+        <!-- 3D Intensity -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>3D Intensity</span>
+            <span id="valIntensity" class="val-display">85%</span>
+          </div>
+          <input type="range" id="sliderIntensity" min="0" max="100" value="85">
+        </div>
+
+        <!-- Rotation Speed -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Rotation Speed</span>
+            <span id="valSpeed" class="val-display">0.12 Hz</span>
+          </div>
+          <input type="range" id="sliderSpeed" min="1" max="100" value="20">
+        </div>
+
+        <!-- Distance -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Distance (m)</span>
+            <span id="valDistance" class="val-display">1.4 m</span>
+          </div>
+          <input type="range" id="sliderDistance" min="3" max="40" value="14">
+        </div>
+
+        <!-- Stereo Width -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Stereo Width</span>
+            <span id="valWidth" class="val-display">120%</span>
+          </div>
+          <input type="range" id="sliderWidth" min="0" max="200" value="120">
+        </div>
+
+        <!-- Room Preset -->
+        <div class="control-row inline-row">
+          <label for="roomSelect">Room Reverb</label>
+          <select id="roomSelect" class="styled-select select-compact">
+            <option value="studio">Studio</option>
+            <option value="small_room">Small Room</option>
+            <option value="concert_hall">Concert Hall</option>
+            <option value="arena">Arena</option>
+            <option value="cathedral">Cathedral</option>
+            <option value="cinema">Cinema</option>
+          </select>
+        </div>
+
+        <!-- Reverb Wet/Dry -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Reverb Mix</span>
+            <span id="valReverbWet" class="val-display">15%</span>
+          </div>
+          <input type="range" id="sliderReverbWet" min="0" max="100" value="15">
+        </div>
+
+        <!-- Bass & Treble Shelving -->
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Bass Shelf</span>
+            <span id="valBass" class="val-display">+0.0 dB</span>
+          </div>
+          <input type="range" id="sliderBass" min="-60" max="80" value="0">
+        </div>
+
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span>Treble Air</span>
+            <span id="valTreble" class="val-display">+0.0 dB</span>
+          </div>
+          <input type="range" id="sliderTreble" min="-60" max="60" value="0">
+        </div>
+
+        <!-- Master Volume -->
+        <div class="slider-group full-width-slider">
+          <div class="slider-label-row">
+            <span>Master Output Volume</span>
+            <span id="valVolume" class="val-display">100%</span>
+          </div>
+          <input type="range" id="sliderVolume" min="0" max="150" value="100">
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer Shortcuts -->
+    <footer class="glass-panel footer-panel">
+      <div class="shortcut-tip">
+        <span class="key-badge">Alt+Shift+S</span> Toggle
+        <span class="pipe-sep">•</span>
+        <span class="key-badge">Alt+Shift+▲/▼</span> 3D Intensity
+      </div>
+    </footer>
+  </div>
+
+  <!-- AutoEQ Import Modal -->
+  <div id="autoEqModal" class="modal-backdrop" style="display:none;">
+    <div class="modal-box glass-panel">
+      <div class="modal-header">
+        <h3>Import AutoEQ Profile</h3>
+        <button id="btnCloseAutoEqModal" class="btn-close">&times;</button>
+      </div>
+      <p class="modal-desc">
+        Paste the contents of any <strong>AutoEQ Parametric EQ .txt</strong> file below (from jaakkopasanen/AutoEq).
+      </p>
+      <textarea id="txtAutoEqInput" placeholder="Preamp: -4.5 dB&#10;Filter 1: ON PK Fc 32 Hz Gain -2.1 dB Q 1.41&#10;Filter 2: ON LSC Fc 105 Hz Gain 5.5 dB Q 0.71&#10;Filter 3: ON HSC Fc 10000 Hz Gain -3.0 dB Q 0.71"></textarea>
+      <div class="modal-actions">
+        <button id="btnCancelAutoEq" class="btn-subtle">Cancel</button>
+        <button id="btnApplyAutoEq" class="btn-action btn-glow">Parse & Apply Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../presets.js"></script>
+  <script src="../storage.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
