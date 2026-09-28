@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateTrajectoryBadge(mode) {
     const modes = [
       'Static Center',
-      'Orbit 360°',
+      '8D In-Head Orbit',
       'Figure-8',
       'Front Stage',
       'Concert Hall',
@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       'Wide Studio',
       'Random Ambient'
     ];
-    radarModeBadge.textContent = modes[mode] || 'Orbit 360°';
+    radarModeBadge.textContent = modes[mode] || '8D In-Head Orbit';
   }
 
   // 7. Dispatch Settings Changes
@@ -445,8 +445,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     ctx.beginPath();
 
     const r = 45;
-    if (mode === 1) { // Orbit
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    if (mode === 1) { // 8D In-Head Penetration Orbit
+      for (let a = 0; a <= Math.PI * 4; a += 0.08) {
+        const sinP = Math.sin(a);
+        const cosP = Math.cos(a);
+        const halfP = a * 0.5;
+        const depthMod = 0.38 + 0.62 * Math.pow(Math.abs(sinP), 1.2);
+        const rCur = r * depthMod;
+        const x = cx + r * sinP;
+        const y = cy - rCur * cosP * (0.65 + 0.35 * Math.sin(halfP));
+        if (a === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
     } else if (mode === 2) { // Fig-8
       for (let a = 0; a <= Math.PI * 2; a += 0.1) {
         const x = cx + r * Math.sin(a);

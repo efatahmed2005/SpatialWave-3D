@@ -22,7 +22,14 @@
   let audioCtx = null;
   let sourceNode = null;
   let preampNode = null;
-  let peqNodes = [];
+  let bassLp = null;
+  let spatHp = null;
+  let haasDelayL = null;
+  let haasDelayR = null;
+  let haasDampL = null;
+  let haasDampR = null;
+  let crossGainL = null;
+  let crossGainR = null;
   let splitterNode = null;
   let delayL = null;
   let delayR = null;
@@ -42,11 +49,11 @@
 
   // DSP Parameters
   let isEnabled = true;
-  let mode = 1; // 1 = Orbit 360
-  let intensity = 0.85;
+  let mode = 1; // 1 = 8D In-Head Traveling Orbit
+  let intensity = 0.90;
   let speedHz = 0.12;
   let userDistance = 1.4;
-  let stereoWidth = 1.2;
+  let stereoWidth = 1.35;
   let bassShelfGain = 0;
   let trebleShelfGain = 0;
   let currentTimeSec = 0;
@@ -88,30 +95,42 @@
     preampNode = audioCtx.createGain();
     preampNode.gain.value = 0.85;
 
+    // Sub-Bass 110Hz Crossover (centers punch without ear fatigue)
+    bassLp = audioCtx.createBiquadFilter();
+    bassLp.type = 'lowpass';
+    bassLp.frequency.value = 110;
+    bassLp.Q.value = 0.707;
+
+    spatHp = audioCtx.createBiquadFilter();
+    spatHp.type = 'highpass';
+    spatHp.frequency.value = 110;
+    spatHp.Q.value = 0.707;
+
     // Filters for Head Shadow ILD
     hsL = audioCtx.createBiquadFilter();
     hsR = audioCtx.createBiquadFilter();
     hsL.type = 'highshelf';
     hsR.type = 'highshelf';
-    hsL.frequency.value = 2400;
-    hsR.frequency.value = 2400;
+    hsL.frequency.value = 2200;
+    hsR.frequency.value = 2200;
 
     // Pinna Notches
     notchL = audioCtx.createBiquadFilter();
     notchR = audioCtx.createBiquadFilter();
     notchL.type = 'notch';
     notchR.type = 'notch';
-    notchL.Q.value = 2.8;
-    notchR.Q.value = 2.8;
+    notchL.Q.value = 3.2;
+    notchR.Q.value = 3.2;
 
-    // Pinna Presence Peaking
+    // Pinna Presence & Rear Occlusion Peaking
     peakL = audioCtx.createBiquadFilter();
     peakR = audioCtx.createBiquadFilter();
     peakL.type = 'peaking';
     peakR.type = 'peaking';
-    peakL.frequency.value = 4200;
-    peakR.frequency.value = 4200;
+    peakL.frequency.value = 3800;
+    peakR.frequency.value = 3800;
     peakL.Q.value = 1.4;
+    peakR.Q.value = 1.4;
 
     // Air Absorption Lowpass
     airL = audioCtx.createBiquadFilter();
@@ -122,8 +141,26 @@
     airR.frequency.value = 18000;
 
     // Fractional Delay Nodes for ITD
-    delayL = audioCtx.createDelay(0.01);
-    delayR = audioCtx.createDelay(0.01);
+    delayL = audioCtx.createDelay(0.015);
+    delayR = audioCtx.createDelay(0.015);
+
+    // Cross-Ear Haas Slapback (~18ms room wall bounce)
+    haasDelayL = audioCtx.createDelay(0.05);
+    haasDelayR = audioCtx.createDelay(0.05);
+    haasDelayL.delayTime.value = 0.018;
+    haasDelayR.delayTime.value = 0.018;
+
+    haasDampL = audioCtx.createBiquadFilter();
+    haasDampR = audioCtx.createBiquadFilter();
+    haasDampL.type = 'lowpass';
+    haasDampR.type = 'lowpass';
+    haasDampL.frequency.value = 3600;
+    haasDampR.frequency.value = 3600;
+
+    crossGainL = audioCtx.createGain();
+    crossGainR = audioCtx.createGain();
+    crossGainL.gain.value = 0.0;
+    crossGainR.gain.value = 0.0;
 
     // Channel routing
     splitterNode = audioCtx.createChannelSplitter(2);
@@ -144,7 +181,15 @@
 
     // Connect Graph
     sourceNode.connect(preampNode);
-    preampNode.connect(splitterNode);
+
+    // Sub-bass anchor (<110Hz) stays centered in both ears
+    preampNode.connect(bassLp);
+    bassLp.connect(mergerNode, 0, 0);
+    bassLp.connect(mergerNode, 0, 1);
+
+    // Spatial mids/highs (>110Hz) feed splitter
+    preampNode.connect(spatHp);
+    spatHp.connect(splitterNode);
 
     // Left Ear: Splitter[0] -> DelayL -> HeadShadowL -> NotchL -> PeakL -> AirL -> Merger[0]
     splitterNode.connect(delayL, 0);
@@ -161,6 +206,17 @@
     notchR.connect(peakR);
     peakR.connect(airR);
     airR.connect(mergerNode, 0, 1);
+
+    // Cross-Ear Haas Slapback reflections
+    splitterNode.connect(haasDelayR, 1);
+    haasDelayR.connect(haasDampR);
+    haasDampR.connect(crossGainL);
+    crossGainL.connect(mergerNode, 0, 0);
+
+    splitterNode.connect(haasDelayL, 0);
+    haasDelayL.connect(haasDampL);
+    haasDampL.connect(crossGainR);
+    crossGainR.connect(mergerNode, 0, 1);
 
     mergerNode.connect(compressorNode);
     compressorNode.connect(volumeNode);
@@ -181,7 +237,7 @@
     startSpatialLoop();
   }
 
-  // Real-time dynamic trajectory loop
+  // Real-time dynamic trajectory loop with 8D in-head traveling
   function startSpatialLoop() {
     if (animFrameId) cancelAnimationFrame(animFrameId);
 
@@ -193,14 +249,22 @@
         const r = userDistance * (0.6 + 0.4 * intensity);
         const omega = TWO_PI * speedHz;
 
-        if (mode === 1) { // Orbit 360
-          pos.x = r * Math.sin(omega * currentTimeSec);
-          pos.y = r * Math.cos(omega * currentTimeSec);
-          pos.z = r * 0.2 * Math.sin(omega * 0.5 * currentTimeSec);
+        if (mode === 1) { // Professional 8D In-Head Traveling Orbit
+          const sinPhase = Math.sin(omega * currentTimeSec);
+          const cosPhase = Math.cos(omega * currentTimeSec);
+          const halfPhase = omega * currentTimeSec * 0.5;
+
+          // In-head contraction when crossing x=0
+          const depthMod = 0.38 + 0.62 * Math.pow(Math.abs(sinPhase), 1.2);
+          const rCur = r * depthMod;
+
+          pos.x = r * sinPhase;
+          pos.y = rCur * cosPhase * (0.65 + 0.35 * Math.sin(halfPhase));
+          pos.z = r * 0.18 * Math.sin(halfPhase);
         } else if (mode === 2) { // Fig-8
           pos.x = r * Math.sin(omega * currentTimeSec);
           pos.y = r * Math.sin(2.0 * omega * currentTimeSec) * 0.85;
-          pos.z = r * 0.15 * Math.cos(omega * currentTimeSec);
+          pos.z = r * 0.18 * Math.cos(omega * currentTimeSec);
         } else if (mode === 3) { // Front Arc
           const angle = (Math.PI / 3.0) * Math.sin(omega * currentTimeSec);
           pos.x = r * Math.sin(angle);
@@ -210,11 +274,13 @@
           pos.x = 0; pos.y = r; pos.z = 0;
         }
 
-        const distance = Math.max(0.2, Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z));
+        const distance = Math.max(0.18, Math.sqrt(pos.x * pos.x + pos.y * pos.y + pos.z * pos.z));
         const azimuth = Math.atan2(pos.x, pos.y);
+        const cosAz = Math.cos(azimuth);
+        const sinAz = Math.sin(azimuth);
         const absAz = Math.abs(azimuth);
 
-        // ITD
+        // ITD (Woodworth)
         const maxDelaySec = (HEAD_RADIUS / SPEED_OF_SOUND) * (Math.sin(absAz) + absAz) * intensity;
         const now = audioCtx.currentTime;
         if (azimuth > 0) {
@@ -225,11 +291,31 @@
           delayR.delayTime.setTargetAtTime(maxDelaySec, now, 0.02);
         }
 
-        // ILD
-        const ildL = -6.0 * (1.0 - Math.cos(azimuth - Math.PI * 0.5)) * 0.5 * intensity;
-        const ildR = -6.0 * (1.0 - Math.cos(azimuth + Math.PI * 0.5)) * 0.5 * intensity;
+        // ILD (-11dB contralateral)
+        const ildL = -11.0 * (1.0 - Math.cos(azimuth - Math.PI * 0.5)) * 0.5 * intensity;
+        const ildR = -11.0 * (1.0 - Math.cos(azimuth + Math.PI * 0.5)) * 0.5 * intensity;
         hsL.gain.setTargetAtTime(ildL, now, 0.02);
         hsR.gain.setTargetAtTime(ildR, now, 0.02);
+
+        // Rear pinna notch & occlusion
+        const isRear = cosAz < 0;
+        const rearDamp = isRear ? (cosAz * 5.5 * intensity) : 1.2;
+        peakL.gain.setTargetAtTime(rearDamp, now, 0.02);
+        peakR.gain.setTargetAtTime(rearDamp, now, 0.02);
+
+        const notchFcL = Math.max(4000, Math.min(10000, 6800 + 700 * sinAz));
+        const notchFcR = Math.max(4000, Math.min(10000, 6800 - 700 * sinAz));
+        notchL.frequency.setTargetAtTime(notchFcL, now, 0.02);
+        notchR.frequency.setTargetAtTime(notchFcR, now, 0.02);
+
+        // Haas cross-ear slapback bounce weighting
+        const panAngle = (azimuth / Math.PI) * 0.5 + 0.5;
+        const directL = Math.cos(panAngle * (Math.PI * 0.5));
+        const directR = Math.sin(panAngle * (Math.PI * 0.5));
+        if (crossGainL && crossGainR) {
+          crossGainL.gain.setTargetAtTime(directR * 0.22 * intensity, now, 0.02);
+          crossGainR.gain.setTargetAtTime(directL * 0.22 * intensity, now, 0.02);
+        }
 
         // Draw radar
         drawRadar(pos.x, pos.y);
